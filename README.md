@@ -14,7 +14,7 @@
 
 1. Clone this repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/Leap.git
+   git clone https://github.com/ElioChanSpace/Leap.git
    ```
 2. Open `Leap.xcodeproj` in **Xcode**.
 3. Select the `Leap` scheme and hit `Cmd + R` to Build and Run!
