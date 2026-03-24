@@ -26,11 +26,21 @@ class ShortcutStore: ObservableObject {
                 }
             }
         }
+        
+        // Ensure clipboard history shortcut has a default value if not set
+        if shortcuts[999] == nil {
+            let defaultClipboard = Shortcut(keyCode: 9, carbonModifiers: UInt32(optionKey), stringRepresentation: "⌥V")
+            shortcuts[999] = defaultClipboard
+            if let data = try? JSONEncoder().encode(defaultClipboard),
+               let string = String(data: data, encoding: .utf8) {
+                UserDefaults.standard.set(string, forKey: "shortcut_999")
+            }
+        }
     }
     
     func load() {
         var newShortcuts: [Int: Shortcut] = [:]
-        for i in 0..<10 { // Support max 10
+        for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 999] { // Support screens and 999 for clipboard
             if let string = UserDefaults.standard.string(forKey: "shortcut_\(i)"),
                let data = string.data(using: .utf8),
                let shortcut = try? JSONDecoder().decode(Shortcut.self, from: data) {

@@ -6,6 +6,7 @@ class MenuManager: NSObject {
     
     var statusItem: NSStatusItem!
     var preferencesWindow: NSWindow?
+    var clipboardHistoryWindow: NSWindow?
     
     private override init() { super.init() }
     
@@ -20,6 +21,11 @@ class MenuManager: NSObject {
         }
         
         let menu = NSMenu()
+        let clipboardItem = NSMenuItem(title: "剪切板历史...", action: #selector(openClipboardHistory), keyEquivalent: "h")
+        clipboardItem.target = self
+        menu.addItem(clipboardItem)
+        menu.addItem(NSMenuItem.separator())
+        
         let prefItem = NSMenuItem(title: "偏好设置...", action: #selector(openPreferences), keyEquivalent: ",")
         prefItem.target = self
         menu.addItem(prefItem)
@@ -48,5 +54,25 @@ class MenuManager: NSObject {
         }
         preferencesWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc func openClipboardHistory() {
+        if clipboardHistoryWindow == nil {
+            let contentView = ClipboardHistoryView()
+            clipboardHistoryWindow = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 350, height: 450),
+                styleMask: [.titled, .closable, .resizable],
+                backing: .buffered,
+                defer: false
+            )
+            clipboardHistoryWindow?.title = "剪切板历史"
+            clipboardHistoryWindow?.contentView = NSHostingView(rootView: contentView)
+            clipboardHistoryWindow?.center()
+            clipboardHistoryWindow?.isReleasedWhenClosed = false
+            clipboardHistoryWindow?.level = .floating // 确保在其他窗口之上
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        clipboardHistoryWindow?.makeKeyAndOrderFront(nil)
+        clipboardHistoryWindow?.orderFrontRegardless()
     }
 }

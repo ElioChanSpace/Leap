@@ -82,6 +82,10 @@ class HotKeyManager {
                           &hotKeyID)
         
         let screenIndex = Int(hotKeyID.id)
-        CursorManager.moveCursor(toScreenIndex: screenIndex)
+        if screenIndex == 999 {
+            MenuManager.shared.openClipboardHistory()
+        } else {
+            CursorManager.moveCursor(toScreenIndex: screenIndex)
+        }
     }
 }

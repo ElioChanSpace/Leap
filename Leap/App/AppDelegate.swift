@@ -25,6 +25,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         
+        // 启动剪切板记录
+        ClipboardManager.shared.startListening()
+        
         // 配置菜单与偏好设置窗口
         MenuManager.shared.setup()
         
