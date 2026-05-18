@@ -20,6 +20,30 @@ class ClipboardManager: ObservableObject {
     // 忽略下一次pasteboard的变化，避免在应用内"复制"恢复时触发循环
     private var ignoreNextChange = false
     
+    private var imagesDirectory: URL {
+        let paths = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
+        let dir = paths[0].appendingPathComponent("LeapClipboardImages")
+        if !FileManager.default.fileExists(atPath: dir.path) {
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
+    }
+    
+    func saveImageData(_ data: Data, for id: UUID) {
+        let url = imagesDirectory.appendingPathComponent(id.uuidString)
+        try? data.write(to: url)
+    }
+    
+    func loadImageData(for id: UUID) -> Data? {
+        let url = imagesDirectory.appendingPathComponent(id.uuidString)
+        return try? Data(contentsOf: url)
+    }
+    
+    private func deleteImageData(for id: UUID) {
+        let url = imagesDirectory.appendingPathComponent(id.uuidString)
+        try? FileManager.default.removeItem(at: url)
+    }
+    
     private init() {
         loadHistory()
         lastChangeCount = pasteboard.changeCount
@@ -42,6 +66,8 @@ class ClipboardManager: ObservableObject {
         
         if let items = pasteboard.pasteboardItems, let first = items.first {
             var newItem: ClipboardItem?
+            var dataToSave: Data?
+            var newId: UUID?
             
             if let string = first.string(forType: .string) {
                 let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -49,14 +75,27 @@ class ClipboardManager: ObservableObject {
                     newItem = ClipboardItem(type: .text, content: string)
                 }
             } else if let image = NSImage(pasteboard: pasteboard), let tiffData = image.tiffRepresentation {
-                // 对于图片，简单保存其大小信息而不保存实体以节省空间，或者保留简单的提示符
-                newItem = ClipboardItem(type: .image, content: "[图片 - \(tiffData.count / 1024) KB]")
+                let id = UUID()
+                let finalData: Data
+                if let bitmap = NSBitmapImageRep(data: tiffData), let pngData = bitmap.representation(using: .png, properties: [:]) {
+                    finalData = pngData
+                } else {
+                    finalData = tiffData
+                }
+                
+                newId = id
+                dataToSave = finalData
+                newItem = ClipboardItem(id: id, type: .image, content: "[图片 - \(finalData.count / 1024) KB]")
             }
             
             if let item = newItem {
                 // 去重
                 if let last = history.first, last.content == item.content && last.type == item.type {
                     return
+                }
+                
+                if let data = dataToSave, let id = newId {
+                    self.saveImageData(data, for: id)
                 }
                 
                 DispatchQueue.main.async {
@@ -69,6 +108,12 @@ class ClipboardManager: ObservableObject {
     
     func truncateAndSaveHistory() {
         if history.count > savedHistoryLimit {
+            let itemsToRemove = history.dropFirst(savedHistoryLimit)
+            for item in itemsToRemove {
+                if item.type == .image {
+                    deleteImageData(for: item.id)
+                }
+            }
             history = Array(history.prefix(savedHistoryLimit))
         }
         
@@ -96,9 +141,13 @@ class ClipboardManager: ObservableObject {
         
         if item.type == .text, let content = item.content {
             pasteboard.setString(content, forType: .string)
-        } else if item.type == .image, let content = item.content {
-            // 目前图片没有被完整保存（只存了文本提示），只能将提示文本复制回剪切板作为补偿
-            pasteboard.setString(content, forType: .string)
+        } else if item.type == .image {
+            if let data = loadImageData(for: item.id), let image = NSImage(data: data) {
+                pasteboard.writeObjects([image])
+            } else if let content = item.content {
+                // fallback to text if image data is lost
+                pasteboard.setString(content, forType: .string)
+            }
         }
         
         lastChangeCount = pasteboard.changeCount
@@ -107,5 +156,6 @@ class ClipboardManager: ObservableObject {
     func clearHistory() {
         history.removeAll()
         UserDefaults.standard.removeObject(forKey: historyKey)
+        try? FileManager.default.removeItem(at: imagesDirectory)
     }
 }

@@ -70,6 +70,7 @@ class MenuManager: NSObject {
             clipboardHistoryWindow?.center()
             clipboardHistoryWindow?.isReleasedWhenClosed = false
             clipboardHistoryWindow?.level = .floating // 确保在其他窗口之上
+            clipboardHistoryWindow?.collectionBehavior = .fullScreenPrimary
         }
         NSApp.activate(ignoringOtherApps: true)
         clipboardHistoryWindow?.makeKeyAndOrderFront(nil)
