@@ -42,7 +42,6 @@ struct StatusMenuView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 300)
-        .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
             monitor.startMonitoring()
         }
