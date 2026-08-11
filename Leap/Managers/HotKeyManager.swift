@@ -85,7 +85,7 @@ class HotKeyManager {
         if screenIndex == 999 {
             MenuManager.shared.openClipboardHistory()
         } else {
-            CursorManager.moveCursor(toScreenIndex: screenIndex)
+            CursorManager.shared.moveCursor(toScreenIndex: screenIndex)
         }
     }
 }

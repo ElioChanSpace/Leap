@@ -3,6 +3,7 @@ import Combine
 
 struct PreferencesView: View {
     @StateObject private var store = ShortcutStore.shared
+    @StateObject private var cursorManager = CursorManager.shared
     @State private var screenCount: Int = NSScreen.screens.count
 
     @AppStorage("savedHistoryLimit") private var savedHistoryLimit: Int = 50
@@ -38,9 +39,61 @@ struct PreferencesView: View {
                     ShortcutItemView(index: 999, shortcut: store.shortcuts[999])
                 }
             }
+
+            Section("鼠标跳转设置") {
+                Toggle("启用跳转动画", isOn: $cursorManager.enableJumpAnimation)
+                Toggle("启用窗口跟随", isOn: $cursorManager.enableWindowFollow)
+
+                Button("清除记忆位置") {
+                    cursorManager.clearRememberedPositions()
+                }
+                .foregroundStyle(.secondary)
+            }
+
+            Section("窗口管理") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("快捷键说明")
+                        .font(.headline)
+
+                    HStack {
+                        Text("左半屏")
+                        Spacer()
+                        Text("⌘ + ←")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("右半屏")
+                        Spacer()
+                        Text("⌘ + →")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("上半屏")
+                        Spacer()
+                        Text("⌘ + ↑")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("下半屏")
+                        Spacer()
+                        Text("⌘ + ↓")
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack {
+                        Text("全屏")
+                        Spacer()
+                        Text("⌘ + ↩")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 380, height: 320)
+        .frame(width: 380, height: 500)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)) { _ in
             screenCount = NSScreen.screens.count
         }

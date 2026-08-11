@@ -7,6 +7,7 @@ class MenuManager: NSObject {
     var statusItem: NSStatusItem!
     var preferencesWindow: NSWindow?
     var clipboardHistoryWindow: NSWindow?
+    var popover: NSPopover?
 
     private override init() { super.init() }
 
@@ -18,24 +19,50 @@ class MenuManager: NSObject {
             } else {
                 button.title = "Leap"
             }
+            button.action = #selector(togglePopover)
+            button.target = self
         }
 
-        let menu = NSMenu()
-        let clipboardItem = NSMenuItem(title: "剪切板历史...", action: #selector(openClipboardHistory), keyEquivalent: "h")
-        clipboardItem.target = self
-        menu.addItem(clipboardItem)
-        menu.addItem(NSMenuItem.separator())
-
-        let prefItem = NSMenuItem(title: "偏好设置...", action: #selector(openPreferences), keyEquivalent: ",")
-        prefItem.target = self
-        menu.addItem(prefItem)
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(NSMenuItem(title: "退出",
-                                action: #selector(NSApplication.terminate(_:)),
-                                keyEquivalent: "q"))
-        statusItem.menu = menu
+        setupPopover()
 
         openPreferences()
+    }
+
+    private func setupPopover() {
+        let popover = NSPopover()
+        popover.contentSize = NSSize(width: 300, height: 500)
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentViewController = NSHostingController(rootView: StatusMenuView(
+            onClipboardHistory: { [weak self] in
+                self?.closePopover()
+                self?.openClipboardHistory()
+            },
+            onPreferences: { [weak self] in
+                self?.closePopover()
+                self?.openPreferences()
+            },
+            onQuit: {
+                NSApp.terminate(nil)
+            }
+        ))
+        self.popover = popover
+    }
+
+    @objc func togglePopover() {
+        guard let button = statusItem.button else { return }
+
+        if let popover = popover, popover.isShown {
+            popover.performClose(nil)
+        } else {
+            popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            // 确保 popover 窗口在最前面
+            popover?.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    func closePopover() {
+        popover?.performClose(nil)
     }
 
     @objc func openPreferences() {
