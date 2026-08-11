@@ -24,8 +24,6 @@ class MenuManager: NSObject {
         }
 
         setupPopover()
-
-        openPreferences()
     }
 
     private func setupPopover() {

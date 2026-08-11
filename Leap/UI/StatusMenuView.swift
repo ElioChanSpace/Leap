@@ -67,17 +67,20 @@ struct StatusMenuView: View {
                     }
                 }
 
-                Button(action: onClipboardHistory) {
-                    HStack {
-                        Spacer()
-                        Text("查看全部...")
-                            .font(.system(size: 11))
-                        Spacer()
-                    }
+                HStack(spacing: 3) {
+                    Text("查看全部")
+                        .font(.system(size: 11, weight: .medium))
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
                 }
-                .buttonStyle(.plain)
                 .foregroundStyle(.blue)
-                .padding(.top, 4)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.top, 6)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    onClipboardHistory()
+                }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
