@@ -150,17 +150,18 @@ struct PopoverContainer<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // 箭头
+            // 箭头 - 带阴影效果
             ArrowShape(arrowWidth: arrowWidth, arrowHeight: arrowHeight)
                 .fill(Color.white)
                 .frame(width: arrowWidth, height: arrowHeight)
                 .frame(maxWidth: .infinity, alignment: .center)
+                .shadow(color: .black.opacity(0.1), radius: 3, x: 0, y: 2)
 
             // 内容
             content
                 .background(Color.white)
                 .cornerRadius(8)
-                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
         }
     }
 }
@@ -171,9 +172,29 @@ struct ArrowShape: Shape {
 
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.move(to: CGPoint(x: 0, y: arrowHeight))
-        path.addLine(to: CGPoint(x: arrowWidth / 2, y: 0))
-        path.addLine(to: CGPoint(x: arrowWidth, y: arrowHeight))
+
+        // 使用贝塞尔曲线创建更圆润的箭头
+        let startX: CGFloat = 0
+        let endX: CGFloat = arrowWidth
+        let midX: CGFloat = arrowWidth / 2
+        let topY: CGFloat = 0
+        let bottomY: CGFloat = arrowHeight
+        let curveOffset: CGFloat = arrowHeight * 0.4
+
+        path.move(to: CGPoint(x: startX, y: bottomY))
+
+        // 左侧曲线
+        path.addQuadCurve(
+            to: CGPoint(x: midX, y: topY),
+            control: CGPoint(x: midX - curveOffset, y: bottomY - curveOffset)
+        )
+
+        // 右侧曲线
+        path.addQuadCurve(
+            to: CGPoint(x: endX, y: bottomY),
+            control: CGPoint(x: midX + curveOffset, y: bottomY - curveOffset)
+        )
+
         path.closeSubpath()
         return path
     }
