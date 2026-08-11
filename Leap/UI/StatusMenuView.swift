@@ -42,6 +42,7 @@ struct StatusMenuView: View {
             .padding(.vertical, 8)
         }
         .frame(width: 300)
+        .background(Color.white)
         .onAppear {
             monitor.startMonitoring()
         }
