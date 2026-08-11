@@ -20,13 +20,13 @@ class ShortcutRecorderNSView: NSView {
     
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
-        let color = isRecording ? NSColor.controlAccentColor : NSColor.tertiaryLabelColor
+        let color = isRecording ? NSColor.controlAccentColor : NSColor.separatorColor
         color.setStroke()
-        let path = NSBezierPath(roundedRect: bounds, xRadius: 4, yRadius: 4)
-        path.lineWidth = 2
+        let path = NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6)
+        path.lineWidth = isRecording ? 2 : 1
         path.stroke()
         if isRecording {
-            NSColor.controlAccentColor.withAlphaComponent(0.1).setFill()
+            NSColor.controlAccentColor.withAlphaComponent(0.05).setFill()
             path.fill()
         }
     }

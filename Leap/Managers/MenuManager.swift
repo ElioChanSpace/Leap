@@ -3,13 +3,13 @@ import SwiftUI
 
 class MenuManager: NSObject {
     static let shared = MenuManager()
-    
+
     var statusItem: NSStatusItem!
     var preferencesWindow: NSWindow?
     var clipboardHistoryWindow: NSWindow?
-    
+
     private override init() { super.init() }
-    
+
     func setup() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -19,13 +19,13 @@ class MenuManager: NSObject {
                 button.title = "Leap"
             }
         }
-        
+
         let menu = NSMenu()
         let clipboardItem = NSMenuItem(title: "剪切板历史...", action: #selector(openClipboardHistory), keyEquivalent: "h")
         clipboardItem.target = self
         menu.addItem(clipboardItem)
         menu.addItem(NSMenuItem.separator())
-        
+
         let prefItem = NSMenuItem(title: "偏好设置...", action: #selector(openPreferences), keyEquivalent: ",")
         prefItem.target = self
         menu.addItem(prefItem)
@@ -34,10 +34,10 @@ class MenuManager: NSObject {
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
         statusItem.menu = menu
-        
+
         openPreferences()
     }
-    
+
     @objc func openPreferences() {
         if preferencesWindow == nil {
             let contentView = PreferencesView()
@@ -55,7 +55,7 @@ class MenuManager: NSObject {
         preferencesWindow?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
-    
+
     @objc func openClipboardHistory() {
         if clipboardHistoryWindow == nil {
             let contentView = ClipboardHistoryView()
@@ -69,7 +69,7 @@ class MenuManager: NSObject {
             clipboardHistoryWindow?.contentView = NSHostingView(rootView: contentView)
             clipboardHistoryWindow?.center()
             clipboardHistoryWindow?.isReleasedWhenClosed = false
-            clipboardHistoryWindow?.level = .floating // 确保在其他窗口之上
+            clipboardHistoryWindow?.level = .floating
             clipboardHistoryWindow?.collectionBehavior = .fullScreenPrimary
         }
         NSApp.activate(ignoringOtherApps: true)
