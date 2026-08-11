@@ -6,6 +6,7 @@ struct ClipboardHistoryView: View {
 
     @State private var hoveredImageId: UUID?
     @State private var selectedIndex: Int?
+    @State private var keyMonitor: Any?
 
     var displayedHistory: [ClipboardItem] {
         Array(manager.history.prefix(displayedHistoryLimit))
@@ -66,8 +67,14 @@ struct ClipboardHistoryView: View {
         .frame(width: 350, height: 450)
         .background(Color(NSColor.windowBackgroundColor))
         .onAppear {
-            NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 handleKeyPress(event)
+            }
+        }
+        .onDisappear {
+            if let monitor = keyMonitor {
+                NSEvent.removeMonitor(monitor)
+                keyMonitor = nil
             }
         }
     }

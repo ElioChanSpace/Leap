@@ -127,16 +127,20 @@ class WindowManager {
         var position: CFTypeRef?
         var size: CFTypeRef?
 
-        AXUIElementCopyAttributeValue(window as! AXUIElement, kAXPositionAttribute as CFString, &position)
-        AXUIElementCopyAttributeValue(window as! AXUIElement, kAXSizeAttribute as CFString, &size)
+        let axWindow = unsafeBitCast(window, to: AXUIElement.self)
+        AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &position)
+        AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &size)
 
-        guard let positionValue = position, let sizeValue = size else { return nil }
+        guard let positionValue = position,
+              let sizeValue = size else { return nil }
+        let axPosition = unsafeBitCast(positionValue, to: AXValue.self)
+        let axSize = unsafeBitCast(sizeValue, to: AXValue.self)
 
         var point = CGPoint.zero
         var windowSize = CGSize.zero
 
-        AXValueGetValue(positionValue as! AXValue, .cgPoint, &point)
-        AXValueGetValue(sizeValue as! AXValue, .cgSize, &windowSize)
+        AXValueGetValue(axPosition, .cgPoint, &point)
+        AXValueGetValue(axSize, .cgSize, &windowSize)
 
         // 查找匹配的 NSWindow
         for window in NSApp.windows {
@@ -212,18 +216,17 @@ class WindowManager {
             return
         }
 
+        let axWindow = unsafeBitCast(windowElement, to: AXUIElement.self)
         // 设置窗口位置
         var point = frame.origin
-        let positionValue = AXValueCreate(.cgPoint, &point)
-        if let positionValue = positionValue {
-            AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXPositionAttribute as CFString, positionValue)
+        if let positionValue = AXValueCreate(.cgPoint, &point) {
+            AXUIElementSetAttributeValue(axWindow, kAXPositionAttribute as CFString, positionValue)
         }
 
         // 设置窗口大小
         var size = frame.size
-        let sizeValue = AXValueCreate(.cgSize, &size)
-        if let sizeValue = sizeValue {
-            AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXSizeAttribute as CFString, sizeValue)
+        if let sizeValue = AXValueCreate(.cgSize, &size) {
+            AXUIElementSetAttributeValue(axWindow, kAXSizeAttribute as CFString, sizeValue)
         }
     }
 }

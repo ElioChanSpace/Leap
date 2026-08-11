@@ -8,6 +8,7 @@ class MenuManager: NSObject {
     var preferencesWindow: NSWindow?
     var clipboardHistoryWindow: NSWindow?
     var popoverWindow: NSWindow?
+    private var globalMonitor: Any?
 
     private override init() { super.init() }
 
@@ -90,8 +91,14 @@ class MenuManager: NSObject {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
 
+        // 移除旧的全局事件监听器
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMonitor = nil
+        }
+
         // 点击外部关闭
-        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+        globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.closePopover()
         }
 
@@ -101,6 +108,12 @@ class MenuManager: NSObject {
     func closePopover() {
         popoverWindow?.orderOut(nil)
         popoverWindow = nil
+
+        // 移除全局事件监听器
+        if let monitor = globalMonitor {
+            NSEvent.removeMonitor(monitor)
+            globalMonitor = nil
+        }
     }
 
     @objc func openPreferences() {
