@@ -154,6 +154,7 @@ struct MenuButton: View {
         .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(4)
         .contentShape(Rectangle())
+        .focusEffectDisabled()
         .onTapGesture {
             action()
         }
