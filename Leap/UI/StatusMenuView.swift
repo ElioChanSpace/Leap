@@ -17,73 +17,7 @@ struct StatusMenuView: View {
             Divider()
 
             // 剪切板历史预览
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: "doc.on.clipboard")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-
-                    Text("剪切板历史")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    Text("\(clipboardManager.history.count) 项")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.tertiary)
-                }
-
-                if clipboardManager.history.isEmpty {
-                    HStack {
-                        Spacer()
-                        Text("暂无记录")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                } else {
-                    // 显示最近 3 条记录
-                    ForEach(clipboardManager.history.prefix(3)) { item in
-                        HStack(spacing: 8) {
-                            Image(systemName: item.type == .image ? "photo" : "doc.text")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                                .frame(width: 16)
-
-                            Text(item.content ?? "图片")
-                                .font(.system(size: 11))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-
-                            Spacer()
-
-                            Text(item.timestamp, style: .relative)
-                                .font(.system(size: 10))
-                                .foregroundStyle(.tertiary)
-                        }
-                        .padding(.vertical, 4)
-                    }
-                }
-
-                HStack(spacing: 3) {
-                    Text("查看全部")
-                        .font(.system(size: 11, weight: .medium))
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                }
-                .foregroundStyle(.blue)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .padding(.top, 6)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    onClipboardHistory()
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            clipboardSection
 
             Divider()
 
@@ -115,6 +49,79 @@ struct StatusMenuView: View {
         .onDisappear {
             monitor.stopMonitoring()
         }
+    }
+
+    private var clipboardSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "doc.on.clipboard")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+
+                Text("剪切板历史")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+
+                Text("\(clipboardManager.history.count) 项")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            }
+
+            if clipboardManager.history.isEmpty {
+                HStack {
+                    Spacer()
+                    Text("暂无记录")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.tertiary)
+                    Spacer()
+                }
+                .padding(.vertical, 8)
+            } else {
+                ForEach(clipboardManager.history.prefix(3)) { item in
+                    clipboardItemRow(item)
+                }
+            }
+
+            HStack(spacing: 3) {
+                Text("查看全部")
+                    .font(.system(size: 11, weight: .medium))
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+            }
+            .foregroundStyle(.blue)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.top, 6)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                onClipboardHistory()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+
+    private func clipboardItemRow(_ item: ClipboardItem) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: item.type == .image ? "photo" : "doc.text")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+                .frame(width: 16)
+
+            Text(item.content ?? "图片")
+                .font(.system(size: 11))
+                .lineLimit(1)
+                .truncationMode(.tail)
+
+            Spacer()
+
+            Text(item.timestamp, style: .relative)
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
     }
 }
 

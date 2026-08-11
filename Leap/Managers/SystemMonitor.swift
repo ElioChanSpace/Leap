@@ -13,17 +13,10 @@ class SystemMonitor: ObservableObject {
     @Published var diskTotal: String = "0 GB"
 
     private var timer: Timer?
-    private var previousCPUInfo: processor_info_array_t?
-    private var previousCPUInfoCount: mach_msg_type_number_t = 0
-    private var numCPUs: natural_t = 0
 
     func startMonitoring() {
-        // 获取 CPU 数量
-        var size = MemoryLayout<natural_t>.size
-        sysctlbyname("hw.ncpu", &numCPUs, &size, nil, 0)
-
         updateStats()
-        timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { [weak self] _ in
             self?.updateStats()
         }
     }
@@ -34,66 +27,62 @@ class SystemMonitor: ObservableObject {
     }
 
     private func updateStats() {
-        updateCPUUsage()
-        updateMemoryUsage()
-        updateTemperature()
-        updateDiskUsage()
+        // 在后台线程更新数据
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let cpu = self?.getCPUUsage() ?? 0
+            let (memUsage, memUsed, memTotal) = self?.getMemoryUsage() ?? (0, "0 GB", "0 GB")
+            let disk = self?.getDiskUsage() ?? (0, "0 GB", "0 GB")
+
+            DispatchQueue.main.async {
+                self?.cpuUsage = cpu
+                self?.memoryUsage = memUsage
+                self?.memoryUsed = memUsed
+                self?.memoryTotal = memTotal
+                self?.diskUsage = disk.0
+                self?.diskUsed = disk.1
+                self?.diskTotal = disk.2
+                self?.temperature = 40 + cpu * 0.4
+            }
+        }
     }
 
     // MARK: - CPU Usage
 
-    private func updateCPUUsage() {
+    private func getCPUUsage() -> Double {
+        var numCPUs: natural_t = 0
         var cpuInfo: processor_info_array_t?
         var cpuInfoCount: mach_msg_type_number_t = 0
 
         let result = host_processor_info(mach_host_self(), PROCESSOR_CPU_LOAD_INFO, &numCPUs, &cpuInfo, &cpuInfoCount)
-        guard result == KERN_SUCCESS, let cpuInfo = cpuInfo else { return }
+        guard result == KERN_SUCCESS, let cpuInfo = cpuInfo else { return 0 }
 
         defer {
             let size = vm_size_t(cpuInfoCount) * vm_size_t(MemoryLayout<Int32>.size)
             vm_deallocate(mach_task_self_, vm_address_t(bitPattern: cpuInfo), size)
         }
 
-        if let previousCPUInfo = previousCPUInfo, previousCPUInfoCount == cpuInfoCount {
-            var totalUsage: Double = 0
-            let stride = Int(CPU_STATE_MAX)
+        var totalUsage: Double = 0
+        let stride = Int(CPU_STATE_MAX)
 
-            for i in 0..<Int(numCPUs) {
-                let offset = stride * i
-                let user = Double(cpuInfo[offset + Int(CPU_STATE_USER)] - previousCPUInfo[offset + Int(CPU_STATE_USER)])
-                let system = Double(cpuInfo[offset + Int(CPU_STATE_SYSTEM)] - previousCPUInfo[offset + Int(CPU_STATE_SYSTEM)])
-                let idle = Double(cpuInfo[offset + Int(CPU_STATE_IDLE)] - previousCPUInfo[offset + Int(CPU_STATE_IDLE)])
-                let nice = Double(cpuInfo[offset + Int(CPU_STATE_NICE)] - previousCPUInfo[offset + Int(CPU_STATE_NICE)])
+        for i in 0..<Int(numCPUs) {
+            let offset = stride * i
+            let user = Double(cpuInfo[offset + Int(CPU_STATE_USER)])
+            let system = Double(cpuInfo[offset + Int(CPU_STATE_SYSTEM)])
+            let idle = Double(cpuInfo[offset + Int(CPU_STATE_IDLE)])
+            let nice = Double(cpuInfo[offset + Int(CPU_STATE_NICE)])
 
-                let total = user + system + idle + nice
-                if total > 0 {
-                    totalUsage += (user + system + nice) / total
-                }
-            }
-
-            DispatchQueue.main.async { [weak self] in
-                self?.cpuUsage = totalUsage / Double(self?.numCPUs ?? 1) * 100
+            let total = user + system + idle + nice
+            if total > 0 {
+                totalUsage += (user + system + nice) / total
             }
         }
 
-        // 保存当前 CPU 信息用于下次计算
-        let size = vm_size_t(cpuInfoCount) * vm_size_t(MemoryLayout<Int32>.size)
-        let newPreviousInfo = UnsafeMutablePointer<Int32>.allocate(capacity: Int(cpuInfoCount))
-        newPreviousInfo.initialize(from: cpuInfo, count: Int(cpuInfoCount))
-
-        // 释放旧的 CPU 信息
-        if let oldInfo = previousCPUInfo {
-            let oldSize = vm_size_t(previousCPUInfoCount) * vm_size_t(MemoryLayout<Int32>.size)
-            vm_deallocate(mach_task_self_, vm_address_t(bitPattern: oldInfo), oldSize)
-        }
-
-        previousCPUInfo = newPreviousInfo
-        previousCPUInfoCount = cpuInfoCount
+        return totalUsage / Double(numCPUs) * 100
     }
 
     // MARK: - Memory Usage
 
-    private func updateMemoryUsage() {
+    private func getMemoryUsage() -> (Double, String, String) {
         var stats = vm_statistics64()
         var count = mach_msg_type_number_t(MemoryLayout<vm_statistics64>.size) / 4
 
@@ -103,7 +92,7 @@ class SystemMonitor: ObservableObject {
             }
         }
 
-        guard result == KERN_SUCCESS else { return }
+        guard result == KERN_SUCCESS else { return (0, "0 GB", "0 GB") }
 
         let pageSize = Double(vm_kernel_page_size)
         let active = Double(stats.active_count) * pageSize
@@ -112,29 +101,17 @@ class SystemMonitor: ObservableObject {
         let totalMemory = Double(ProcessInfo.processInfo.physicalMemory)
         let usedMemory = active + wired
 
-        DispatchQueue.main.async { [weak self] in
-            self?.memoryUsage = usedMemory / totalMemory * 100
-            self?.memoryUsed = self?.formatBytes(usedMemory) ?? "0 GB"
-            self?.memoryTotal = self?.formatBytes(totalMemory) ?? "0 GB"
-        }
-    }
-
-    // MARK: - Temperature
-
-    private func updateTemperature() {
-        // 使用系统命令获取温度（简化实现）
-        DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            // 估算温度：基础温度 40°C + CPU 使用率 * 0.4
-            self.temperature = 40 + self.cpuUsage * 0.4
-        }
+        let usage = usedMemory / totalMemory * 100
+        return (usage, formatBytes(usedMemory), formatBytes(totalMemory))
     }
 
     // MARK: - Disk Usage
 
-    private func updateDiskUsage() {
+    private func getDiskUsage() -> (Double, String, String) {
         let fileManager = FileManager.default
-        guard let path = fileManager.urls(for: .userDirectory, in: .localDomainMask).first?.path else { return }
+        guard let path = fileManager.urls(for: .userDirectory, in: .localDomainMask).first?.path else {
+            return (0, "0 GB", "0 GB")
+        }
 
         do {
             let attributes = try fileManager.attributesOfFileSystem(forPath: path)
@@ -144,15 +121,14 @@ class SystemMonitor: ObservableObject {
                 let free = freeSize.doubleValue
                 let used = total - free
 
-                DispatchQueue.main.async { [weak self] in
-                    self?.diskUsage = used / total * 100
-                    self?.diskUsed = self?.formatBytes(used) ?? "0 GB"
-                    self?.diskTotal = self?.formatBytes(total) ?? "0 GB"
-                }
+                let usage = used / total * 100
+                return (usage, formatBytes(used), formatBytes(total))
             }
         } catch {
             print("Error getting disk info: \(error)")
         }
+
+        return (0, "0 GB", "0 GB")
     }
 
     // MARK: - Helpers
