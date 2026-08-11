@@ -134,28 +134,29 @@ struct MenuButton: View {
     @State private var isHovered = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 10) {
-                Image(systemName: icon)
-                    .font(.system(size: 13))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 20)
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13))
+                .foregroundStyle(.secondary)
+                .frame(width: 20)
 
-                Text(title)
-                    .font(.system(size: 13))
+            Text(title)
+                .font(.system(size: 13))
 
-                Spacer()
+            Spacer()
 
-                Text(shortcut)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 6)
-            .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
-            .cornerRadius(4)
+            Text(shortcut)
+                .font(.system(size: 11))
+                .foregroundStyle(.tertiary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(isHovered ? Color.accentColor.opacity(0.1) : Color.clear)
+        .cornerRadius(4)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            action()
+        }
         .onHover { hovering in
             isHovered = hovering
         }
