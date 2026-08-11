@@ -31,7 +31,7 @@ class MenuManager: NSObject {
         popover.contentSize = NSSize(width: 300, height: 500)
         popover.behavior = .transient
         popover.animates = true
-        popover.appearance = NSAppearance(named: .aqua)
+        popover.appearance = NSAppearance(named: .vibrantLight)
         popover.contentViewController = NSHostingController(rootView: StatusMenuView(
             onClipboardHistory: { [weak self] in
                 self?.closePopover()
