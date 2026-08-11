@@ -7,7 +7,7 @@ class MenuManager: NSObject {
     var statusItem: NSStatusItem!
     var preferencesWindow: NSWindow?
     var clipboardHistoryWindow: NSWindow?
-    var popover: NSPopover?
+    var popoverWindow: NSWindow?
 
     private override init() { super.init() }
 
@@ -22,17 +22,44 @@ class MenuManager: NSObject {
             button.action = #selector(togglePopover)
             button.target = self
         }
-
-        setupPopover()
     }
 
-    private func setupPopover() {
-        let popover = NSPopover()
-        popover.contentSize = NSSize(width: 300, height: 500)
-        popover.behavior = .transient
-        popover.animates = true
-        popover.appearance = NSAppearance(named: .vibrantLight)
-        popover.contentViewController = NSHostingController(rootView: StatusMenuView(
+    @objc func togglePopover() {
+        if let window = popoverWindow, window.isVisible {
+            closePopover()
+        } else {
+            showPopover()
+        }
+    }
+
+    private func showPopover() {
+        guard let button = statusItem.button else { return }
+
+        // 计算位置
+        let buttonFrame = button.window?.convertToScreen(button.frame) ?? .zero
+        let windowWidth: CGFloat = 300
+        let windowHeight: CGFloat = 500
+        let arrowHeight: CGFloat = 10
+        let arrowWidth: CGFloat = 20
+
+        let windowX = buttonFrame.midX - windowWidth / 2
+        let windowY = buttonFrame.minY - windowHeight - arrowHeight
+
+        // 创建窗口
+        let window = NSWindow(
+            contentRect: NSRect(x: windowX, y: windowY, width: windowWidth, height: windowHeight + arrowHeight),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.level = .floating
+        window.isReleasedWhenClosed = false
+
+        // 创建内容视图
+        let contentView = StatusMenuView(
             onClipboardHistory: { [weak self] in
                 self?.closePopover()
                 self?.openClipboardHistory()
@@ -44,24 +71,36 @@ class MenuManager: NSObject {
             onQuit: {
                 NSApp.terminate(nil)
             }
-        ))
-        self.popover = popover
-    }
+        )
 
-    @objc func togglePopover() {
-        guard let button = statusItem.button else { return }
+        // 创建带箭头的容器视图
+        let containerWidth = windowWidth
+        let containerHeight = windowHeight + arrowHeight
 
-        if let popover = popover, popover.isShown {
-            popover.performClose(nil)
-        } else {
-            popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            // 确保 popover 窗口在最前面
-            popover?.contentViewController?.view.window?.makeKey()
+        let containerHostingView = NSHostingView(rootView:
+            PopoverContainer(
+                arrowHeight: arrowHeight,
+                arrowWidth: arrowWidth,
+                content: contentView
+            )
+        )
+        containerHostingView.frame = NSRect(x: 0, y: 0, width: containerWidth, height: containerHeight)
+
+        window.contentView = containerHostingView
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // 点击外部关闭
+        NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+            self?.closePopover()
         }
+
+        popoverWindow = window
     }
 
     func closePopover() {
-        popover?.performClose(nil)
+        popoverWindow?.orderOut(nil)
+        popoverWindow = nil
     }
 
     @objc func openPreferences() {
@@ -101,5 +140,41 @@ class MenuManager: NSObject {
         NSApp.activate(ignoringOtherApps: true)
         clipboardHistoryWindow?.makeKeyAndOrderFront(nil)
         clipboardHistoryWindow?.orderFrontRegardless()
+    }
+}
+
+struct PopoverContainer<Content: View>: View {
+    let arrowHeight: CGFloat
+    let arrowWidth: CGFloat
+    let content: Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            // 箭头
+            ArrowShape(arrowWidth: arrowWidth, arrowHeight: arrowHeight)
+                .fill(Color.white)
+                .frame(width: arrowWidth, height: arrowHeight)
+                .frame(maxWidth: .infinity, alignment: .center)
+
+            // 内容
+            content
+                .background(Color.white)
+                .cornerRadius(8)
+                .shadow(color: .black.opacity(0.2), radius: 10, x: 0, y: 5)
+        }
+    }
+}
+
+struct ArrowShape: Shape {
+    let arrowWidth: CGFloat
+    let arrowHeight: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: arrowHeight))
+        path.addLine(to: CGPoint(x: arrowWidth / 2, y: 0))
+        path.addLine(to: CGPoint(x: arrowWidth, y: arrowHeight))
+        path.closeSubpath()
+        return path
     }
 }
