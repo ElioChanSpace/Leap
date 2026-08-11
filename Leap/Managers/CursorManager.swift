@@ -60,6 +60,20 @@ class CursorManager: ObservableObject {
     // MARK: - 跳转动画
 
     private func animateJump(from startPoint: CGPoint, to endPoint: CGPoint) {
+        // 验证坐标有效性
+        guard startPoint.x.isFinite, startPoint.y.isFinite,
+              endPoint.x.isFinite, endPoint.y.isFinite else {
+            performJump(to: endPoint)
+            return
+        }
+
+        // 如果起点和终点太近，直接跳转
+        let distance = hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y)
+        guard distance > 2 else {
+            performJump(to: endPoint)
+            return
+        }
+
         // 移除旧动画层
         animationLayer?.removeFromSuperlayer()
 
@@ -83,6 +97,7 @@ class CursorManager: ObservableObject {
         shapeLayer.lineWidth = 2
         shapeLayer.fillColor = nil
         shapeLayer.lineDashPattern = [4, 4]
+        animationLayer = shapeLayer
 
         // 添加到屏幕
         guard let screen = NSScreen.main else {
@@ -100,7 +115,9 @@ class CursorManager: ObservableObject {
 
         let contentView = NSView(frame: screen.frame)
         contentView.wantsLayer = true
-        contentView.layer?.addSublayer(shapeLayer)
+        if let layer = contentView.layer {
+            layer.addSublayer(shapeLayer)
+        }
         window.contentView = contentView
         window.orderFront(nil)
 
@@ -114,14 +131,16 @@ class CursorManager: ObservableObject {
         shapeLayer.add(animation, forKey: "strokeEnd")
 
         // 动画结束后移动鼠标和移除窗口
+        let targetPoint = endPoint
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.performJump(to: endPoint)
+            self?.performJump(to: targetPoint)
             window.orderOut(nil)
             window.close()
         }
     }
 
     private func performJump(to point: CGPoint) {
+        guard point.x.isFinite, point.y.isFinite else { return }
         CGWarpMouseCursorPosition(point)
 
         // 发送鼠标移动事件以便系统更新光标

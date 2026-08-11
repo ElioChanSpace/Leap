@@ -127,12 +127,15 @@ class WindowManager {
         var position: CFTypeRef?
         var size: CFTypeRef?
 
+        guard CFGetTypeID(window) == AXUIElementGetTypeID() else { return nil }
         let axWindow = unsafeBitCast(window, to: AXUIElement.self)
         AXUIElementCopyAttributeValue(axWindow, kAXPositionAttribute as CFString, &position)
         AXUIElementCopyAttributeValue(axWindow, kAXSizeAttribute as CFString, &size)
 
         guard let positionValue = position,
-              let sizeValue = size else { return nil }
+              let sizeValue = size,
+              CFGetTypeID(positionValue) == AXValueGetTypeID(),
+              CFGetTypeID(sizeValue) == AXValueGetTypeID() else { return nil }
         let axPosition = unsafeBitCast(positionValue, to: AXValue.self)
         let axSize = unsafeBitCast(sizeValue, to: AXValue.self)
 
@@ -210,7 +213,8 @@ class WindowManager {
         var windowRef: CFTypeRef?
         let result = AXUIElementCopyAttributeValue(appRef, kAXFocusedWindowAttribute as CFString, &windowRef)
 
-        guard result == .success, let windowElement = windowRef else {
+        guard result == .success, let windowElement = windowRef,
+              CFGetTypeID(windowElement) == AXUIElementGetTypeID() else {
             // 降级方案：直接移动 NSWindow
             window.setFrame(frame, display: true, animate: true)
             return
