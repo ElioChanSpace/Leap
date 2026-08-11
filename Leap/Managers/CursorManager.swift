@@ -12,8 +12,9 @@ class CursorManager: ObservableObject {
     @AppStorage("enableJumpAnimation") var enableJumpAnimation: Bool = true
     @AppStorage("enableWindowFollow") var enableWindowFollow: Bool = false
 
-    // 动画层
+    // 动画层和窗口（保持强引用防止过度释放）
     private var animationLayer: CAShapeLayer?
+    private var animationWindow: NSWindow?
 
     // MARK: - 公开方法
 
@@ -74,8 +75,8 @@ class CursorManager: ObservableObject {
             return
         }
 
-        // 移除旧动画层
-        animationLayer?.removeFromSuperlayer()
+        // 清理旧动画
+        cleanupAnimation()
 
         // 创建路径
         let path = CGMutablePath()
@@ -121,6 +122,9 @@ class CursorManager: ObservableObject {
         window.contentView = contentView
         window.orderFront(nil)
 
+        // 保持强引用，防止过度释放
+        animationWindow = window
+
         // 动画
         let animation = CABasicAnimation(keyPath: "strokeEnd")
         animation.fromValue = 0
@@ -134,9 +138,16 @@ class CursorManager: ObservableObject {
         let targetPoint = endPoint
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.performJump(to: targetPoint)
-            window.orderOut(nil)
-            window.close()
+            self?.cleanupAnimation()
         }
+    }
+
+    private func cleanupAnimation() {
+        animationLayer?.removeFromSuperlayer()
+        animationLayer = nil
+        animationWindow?.orderOut(nil)
+        animationWindow?.close()
+        animationWindow = nil
     }
 
     private func performJump(to point: CGPoint) {
