@@ -8,13 +8,7 @@ class CursorManager: ObservableObject {
     // 鼠标位置记忆
     @Published var rememberedPositions: [Int: CGPoint] = [:]
 
-    // 设置
-    @AppStorage("enableJumpAnimation") var enableJumpAnimation: Bool = true
     @AppStorage("enableWindowFollow") var enableWindowFollow: Bool = false
-
-    // 动画层和窗口（保持强引用防止过度释放）
-    private var animationLayer: CAShapeLayer?
-    private var animationWindow: NSWindow?
 
     // MARK: - 公开方法
 
@@ -26,12 +20,12 @@ class CursorManager: ObservableObject {
         let targetScreen = screens[screenIndex]
         let currentPoint = getCurrentMousePosition()
 
-        // 优先使用记忆位置，否则使用窗口中心或屏幕中心
+        // 优先使用记忆位置，否则使用屏幕中心
         let targetPoint: CGPoint
         if let remembered = rememberedPositions[screenIndex] {
             targetPoint = remembered
         } else {
-            targetPoint = getTopWindowCenter(for: targetScreen) ?? getScreenCenter(for: targetScreen)
+            targetPoint = getScreenCenter(for: targetScreen)
         }
 
         // 记录当前位置到源屏幕
@@ -41,11 +35,7 @@ class CursorManager: ObservableObject {
         }
 
         // 执行跳转
-        if enableJumpAnimation {
-            animateJump(from: currentPoint, to: targetPoint)
-        } else {
-            performJump(to: targetPoint)
-        }
+        performJump(to: targetPoint)
 
         // 窗口跟随
         if enableWindowFollow || followWindow {
@@ -58,107 +48,11 @@ class CursorManager: ObservableObject {
         rememberedPositions.removeAll()
     }
 
-    // MARK: - 跳转动画
-
-    private func animateJump(from startPoint: CGPoint, to endPoint: CGPoint) {
-        // 验证坐标有效性
-        guard startPoint.x.isFinite, startPoint.y.isFinite,
-              endPoint.x.isFinite, endPoint.y.isFinite else {
-            performJump(to: endPoint)
-            return
-        }
-
-        // 如果起点和终点太近，直接跳转
-        let distance = hypot(endPoint.x - startPoint.x, endPoint.y - startPoint.y)
-        guard distance > 2 else {
-            performJump(to: endPoint)
-            return
-        }
-
-        // 清理旧动画
-        cleanupAnimation()
-
-        // 创建路径
-        let path = CGMutablePath()
-        path.move(to: startPoint)
-
-        // 计算控制点（弧线）
-        let midX = (startPoint.x + endPoint.x) / 2
-        let controlPoint = CGPoint(
-            x: midX,
-            y: min(startPoint.y, endPoint.y) - 50
-        )
-
-        path.addQuadCurve(to: endPoint, control: controlPoint)
-
-        // 创建形状层
-        let shapeLayer = CAShapeLayer()
-        shapeLayer.path = path
-        shapeLayer.strokeColor = NSColor.controlAccentColor.cgColor
-        shapeLayer.lineWidth = 2
-        shapeLayer.fillColor = nil
-        shapeLayer.lineDashPattern = [4, 4]
-        animationLayer = shapeLayer
-
-        // 添加到屏幕
-        guard let screen = NSScreen.main else {
-            performJump(to: endPoint)
-            return
-        }
-
-        let window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
-        window.backgroundColor = .clear
-        window.isOpaque = false
-        window.hasShadow = false
-        window.level = .screenSaver
-        window.ignoresMouseEvents = true
-        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-
-        let contentView = NSView(frame: screen.frame)
-        contentView.wantsLayer = true
-        if let layer = contentView.layer {
-            layer.addSublayer(shapeLayer)
-        }
-        window.contentView = contentView
-        window.orderFront(nil)
-
-        // 保持强引用，防止过度释放
-        animationWindow = window
-
-        // 动画
-        let animation = CABasicAnimation(keyPath: "strokeEnd")
-        animation.fromValue = 0
-        animation.toValue = 1
-        animation.duration = 0.3
-        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-        shapeLayer.add(animation, forKey: "strokeEnd")
-
-        // 动画结束后移动鼠标和移除窗口
-        let targetPoint = endPoint
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-            self?.performJump(to: targetPoint)
-            self?.cleanupAnimation()
-        }
-    }
-
-    private func cleanupAnimation() {
-        animationLayer?.removeFromSuperlayer()
-        animationLayer = nil
-        animationWindow?.orderOut(nil)
-        animationWindow?.close()
-        animationWindow = nil
-    }
+    // MARK: - 跳转
 
     private func performJump(to point: CGPoint) {
         guard point.x.isFinite, point.y.isFinite else { return }
         CGWarpMouseCursorPosition(point)
-
-        // 发送鼠标移动事件以便系统更新光标
-        CGEvent(mouseEventSource: nil,
-                mouseType: .mouseMoved,
-                mouseCursorPosition: point,
-                mouseButton: .left)?.post(tap: .cghidEventTap)
     }
 
     // MARK: - 辅助方法
@@ -175,52 +69,5 @@ class CursorManager: ObservableObject {
         let centerY = mainScreenHeight - screenFrame.midY
 
         return CGPoint(x: centerX, y: centerY)
-    }
-
-    private func cgBounds(for screen: NSScreen) -> CGRect {
-        if let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber {
-            return CGDisplayBounds(screenNumber.uint32Value)
-        }
-
-        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
-        var frame = screen.frame
-        frame.origin.y = mainScreenHeight - frame.maxY
-        return frame
-    }
-
-    private func getTopWindowCenter(for screen: NSScreen) -> CGPoint? {
-        let screenCGBounds = cgBounds(for: screen)
-
-        guard let windowInfoList = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
-            return nil
-        }
-
-        for info in windowInfoList {
-            guard let layer = info[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
-
-            guard let boundsDict = info[kCGWindowBounds as String] as? [String: Any],
-                  let bounds = CGRect(dictionaryRepresentation: boundsDict as CFDictionary) else { continue }
-
-            // 过滤掉太小的窗口（往往不是主窗口）
-            guard bounds.width > 50 && bounds.height > 50 else { continue }
-
-            if bounds.intersects(screenCGBounds) {
-                let intersection = bounds.intersection(screenCGBounds)
-                let area = intersection.width * intersection.height
-                let windowArea = bounds.width * bounds.height
-
-                // 窗口的大部分在目标屏幕上
-                if area > windowArea * 0.5 {
-                    if let pid = info[kCGWindowOwnerPID as String] as? pid_t {
-                        if let app = NSRunningApplication(processIdentifier: pid) {
-                            app.activate(options: .activateIgnoringOtherApps)
-                        }
-                    }
-                    return CGPoint(x: bounds.midX, y: bounds.midY)
-                }
-            }
-        }
-
-        return nil
     }
 }

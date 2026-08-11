@@ -41,7 +41,6 @@ struct PreferencesView: View {
             }
 
             Section("鼠标跳转设置") {
-                Toggle("启用跳转动画", isOn: $cursorManager.enableJumpAnimation)
                 Toggle("启用窗口跟随", isOn: $cursorManager.enableWindowFollow)
 
                 Button("清除记忆位置") {
