@@ -35,18 +35,24 @@ class WindowManager {
 
     /// 将当前活动窗口移动到指定屏幕
     func moveActiveWindowToScreen(at index: Int) {
-        guard let window = getActiveWindow(),
-              index < NSScreen.screens.count else { return }
+        let screens = NSScreen.screens
+        guard !screens.isEmpty, index < screens.count else { return }
 
-        let targetScreen = NSScreen.screens[index]
+        guard let window = getActiveWindow() else { return }
+
+        let targetScreen = screens[index]
         let currentScreen = window.screen ?? NSScreen.main
 
         // 计算窗口在目标屏幕上的相对位置
         let currentFrame = window.frame
         let targetFrame = targetScreen.visibleFrame
+        let currentScreenWidth = currentScreen?.frame.width ?? 1
+        let currentScreenHeight = currentScreen?.frame.height ?? 1
+        let currentScreenX = currentScreen?.frame.origin.x ?? 0
+        let currentScreenY = currentScreen?.frame.origin.y ?? 0
 
-        let relativeX = (currentFrame.origin.x - (currentScreen?.frame.origin.x ?? 0)) / (currentScreen?.frame.width ?? 1)
-        let relativeY = (currentFrame.origin.y - (currentScreen?.frame.origin.y ?? 0)) / (currentScreen?.frame.height ?? 1)
+        let relativeX = (currentFrame.origin.x - currentScreenX) / currentScreenWidth
+        let relativeY = (currentFrame.origin.y - currentScreenY) / currentScreenHeight
 
         let newX = targetFrame.origin.x + relativeX * targetFrame.width
         let newY = targetFrame.origin.y + relativeY * targetFrame.height
@@ -209,11 +215,15 @@ class WindowManager {
         // 设置窗口位置
         var point = frame.origin
         let positionValue = AXValueCreate(.cgPoint, &point)
-        AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXPositionAttribute as CFString, positionValue!)
+        if let positionValue = positionValue {
+            AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXPositionAttribute as CFString, positionValue)
+        }
 
         // 设置窗口大小
         var size = frame.size
         let sizeValue = AXValueCreate(.cgSize, &size)
-        AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXSizeAttribute as CFString, sizeValue!)
+        if let sizeValue = sizeValue {
+            AXUIElementSetAttributeValue(windowElement as! AXUIElement, kAXSizeAttribute as CFString, sizeValue)
+        }
     }
 }

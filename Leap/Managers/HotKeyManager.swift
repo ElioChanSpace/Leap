@@ -31,8 +31,8 @@ class HotKeyManager {
             { (_, event, userData) -> OSStatus in
                 guard let manager = userData.flatMap({
                     Unmanaged<HotKeyManager>.fromOpaque($0).takeUnretainedValue() as HotKeyManager?
-                }) else {return noErr}
-                manager.handleHotKey(event: event!)
+                }), let event = event else {return noErr}
+                manager.handleHotKey(event: event)
                 return noErr
             },
             1,

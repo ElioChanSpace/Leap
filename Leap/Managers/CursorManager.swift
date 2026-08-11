@@ -20,7 +20,7 @@ class CursorManager: ObservableObject {
     /// 移动鼠标到指定屏幕
     func moveCursor(toScreenIndex screenIndex: Int, followWindow: Bool = false) {
         let screens = NSScreen.screens
-        guard screenIndex < screens.count else { return }
+        guard !screens.isEmpty, screenIndex < screens.count else { return }
 
         let targetScreen = screens[screenIndex]
         let currentPoint = getCurrentMousePosition()
@@ -34,8 +34,8 @@ class CursorManager: ObservableObject {
         }
 
         // 记录当前位置到源屏幕
-        if let sourceScreen = NSScreen.screens.first(where: { $0.frame.contains(currentPoint) }) {
-            let sourceIndex = NSScreen.screens.firstIndex(of: sourceScreen) ?? 0
+        if let sourceScreen = screens.first(where: { $0.frame.contains(currentPoint) }),
+           let sourceIndex = screens.firstIndex(of: sourceScreen) {
             rememberedPositions[sourceIndex] = currentPoint
         }
 
@@ -69,7 +69,6 @@ class CursorManager: ObservableObject {
 
         // 计算控制点（弧线）
         let midX = (startPoint.x + endPoint.x) / 2
-        let midY = (startPoint.y + endPoint.y) / 2
         let controlPoint = CGPoint(
             x: midX,
             y: min(startPoint.y, endPoint.y) - 50
@@ -86,38 +85,39 @@ class CursorManager: ObservableObject {
         shapeLayer.lineDashPattern = [4, 4]
 
         // 添加到屏幕
-        if let screen = NSScreen.main {
-            let window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
-            window.backgroundColor = .clear
-            window.isOpaque = false
-            window.hasShadow = false
-            window.level = .screenSaver
-            window.ignoresMouseEvents = true
-            window.collectionBehavior = [.canJoinAllSpaces, .stationary]
-
-            let contentView = NSView(frame: screen.frame)
-            contentView.wantsLayer = true
-            contentView.layer?.addSublayer(shapeLayer)
-            window.contentView = contentView
-            window.orderFront(nil)
-
-            // 动画
-            let animation = CABasicAnimation(keyPath: "strokeEnd")
-            animation.fromValue = 0
-            animation.toValue = 1
-            animation.duration = 0.3
-            animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-            shapeLayer.add(animation, forKey: "strokeEnd")
-
-            // 动画结束后移动鼠标和移除窗口
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                self.performJump(to: endPoint)
-                window.orderOut(nil)
-                window.close()
-            }
-        } else {
+        guard let screen = NSScreen.main else {
             performJump(to: endPoint)
+            return
+        }
+
+        let window = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.hasShadow = false
+        window.level = .screenSaver
+        window.ignoresMouseEvents = true
+        window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+
+        let contentView = NSView(frame: screen.frame)
+        contentView.wantsLayer = true
+        contentView.layer?.addSublayer(shapeLayer)
+        window.contentView = contentView
+        window.orderFront(nil)
+
+        // 动画
+        let animation = CABasicAnimation(keyPath: "strokeEnd")
+        animation.fromValue = 0
+        animation.toValue = 1
+        animation.duration = 0.3
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+
+        shapeLayer.add(animation, forKey: "strokeEnd")
+
+        // 动画结束后移动鼠标和移除窗口
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            self?.performJump(to: endPoint)
+            window.orderOut(nil)
+            window.close()
         }
     }
 
@@ -139,7 +139,7 @@ class CursorManager: ObservableObject {
 
     private func getScreenCenter(for screen: NSScreen) -> CGPoint {
         let screenFrame = screen.frame
-        let mainScreenHeight = NSScreen.screens[0].frame.height
+        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? screenFrame.height
 
         let centerX = screenFrame.midX
         let centerY = mainScreenHeight - screenFrame.midY
@@ -152,7 +152,7 @@ class CursorManager: ObservableObject {
             return CGDisplayBounds(screenNumber.uint32Value)
         }
 
-        let mainScreenHeight = NSScreen.screens[0].frame.height
+        let mainScreenHeight = NSScreen.screens.first?.frame.height ?? screen.frame.height
         var frame = screen.frame
         frame.origin.y = mainScreenHeight - frame.maxY
         return frame
